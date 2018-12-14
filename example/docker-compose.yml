@@ -1,0 +1,63 @@
+
+version: '3.5'
+
+# Super simple single instance zookeeper, not HA, not multi-cluster
+# However, makes clustering NIFI extremely easy and completely through 
+# ENV Variables
+services:
+  zk1:
+    image: zookeeper
+    restart: always
+    ports:
+      - 2181
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zk1:2888:3888
+
+  nifi-0:
+    image: apache/nifi
+    ports:
+      - 8080:8080
+    depends_on:
+      - zk1
+    environment:
+    # Configure the ENV variables for clustering
+      NIFI_WEB_HTTP_PORT: 8080
+      NIFI_WEB_HTTP_HOST: "nifi-0"
+      NIFI_CLUSTER_IS_NODE: "true"
+      NIFI_CLUSTER_ADDRESS: "nifi-0"
+      # Use port 10k in ECS. Using 9990 b/c the container exposes 10k and will
+      # block when starting up
+      NIFI_CLUSTER_NODE_PROTOCOL_PORT: 9999
+      NIFI_ZK_CONNECT_STRING: "zk1:2181"
+      # Make this 2 to expedite the flow election process
+      NIFI_ELECTION_MAX_CANDIDATES: "2"
+    # Map data volumes to keep data persistent outside of docker images
+    volumes:
+      - ./data-0/content_repository:/opt/nifi/nifi-current/content_repository
+      - ./data-0/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository
+      - ./data-0/database_repository:/opt/nifi/nifi-current/database_repository
+      - ./data-0/provenance_repository:/opt/nifi/nifi-current/provenance_repository
+      - ./data-0/conf:/opt/nifi/nifi-current/conf
+        
+  nifi-1:
+    image: apache/nifi
+    ports:
+      - 8181:8181
+    depends_on:
+      - zk1
+    environment:
+      NIFI_WEB_HTTP_PORT: 8181
+      NIFI_WEB_HTTP_HOST: "nifi-1"
+      NIFI_CLUSTER_IS_NODE: "true"
+      NIFI_CLUSTER_ADDRESS: "nifi-1"
+      NIFI_CLUSTER_NODE_PROTOCOL_PORT: 9999
+      NIFI_ZK_CONNECT_STRING: "zk1:2181"
+      NIFI_ELECTION_MAX_CANDIDATES: "2"
+    volumes:
+      - ./data-1/content_repository:/opt/nifi/nifi-current/content_repository
+      - ./data-1/flowfile_repository:/opt/nifi/nifi-current/flowfile_repository
+      - ./data-1/database_repository:/opt/nifi/nifi-current/database_repository
+      - ./data-1/provenance_repository:/opt/nifi/nifi-current/provenance_repository
+      - ./data-1/conf:/opt/nifi/nifi-current/conf
+      

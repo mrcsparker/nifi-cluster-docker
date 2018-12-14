@@ -1,0 +1,8 @@
+**/content_repository/**
+**/flowfile_repository/**
+**/database_repository/**
+**/provenance_repository/**
+flow.xml.gz
+
+!.gitignore
+
